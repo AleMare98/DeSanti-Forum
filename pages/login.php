@@ -16,7 +16,9 @@ require_once __DIR__ . '/../includes/header.php';
 
     <h1>Login</h1>
 
-    <form action="actions/login.php" method="POST" class="auth-form">
+    <div id="form-error" class="alert alert-error" style="display:none;"></div>
+
+    <form action="actions/login.php" method="POST" class="auth-form" data-action="login">
         <?php echo csrfField(); ?>
         <label for="username">Username:</label>
         <input type="text" id="username" name="username" required>

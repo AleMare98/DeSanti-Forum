@@ -25,7 +25,8 @@ require_once __DIR__ . '/../includes/header.php';
 
     <div class="create-form">
         <h2>Create Category</h2>
-        <form action="actions/create_category.php" method="POST">
+        <div id="form-error" class="alert alert-error" style="display:none;"></div>
+        <form action="actions/create_category.php" method="POST" data-action="create_category">
             <?php echo csrfField(); ?>
             <label for="name">Category Name:</label>
             <input type="text" id="name" name="name" maxlength="100" required>
@@ -36,9 +37,9 @@ require_once __DIR__ . '/../includes/header.php';
     <h2>Existing Categories</h2>
 
     <?php if (empty($categories)): ?>
-        <p class="empty-state">No categories yet.</p>
+        <p class="empty-state" id="empty-categories">No categories yet.</p>
     <?php else: ?>
-        <div class="category-list">
+        <div class="category-list" id="category-list">
             <?php foreach ($categories as $cat): ?>
                 <div class="category-item">
                     <a href="?page=category&id=<?php echo $cat['id']; ?>">

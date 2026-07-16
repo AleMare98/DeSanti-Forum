@@ -59,46 +59,50 @@ require_once __DIR__ . '/../includes/header.php';
         </div>
 
         <?php if (isAdmin()): ?>
-            <form action="actions/delete_thread.php" method="POST" class="inline-form">
+            <form action="actions/delete_thread.php" method="POST" class="inline-form" data-action="delete_thread">
                 <?php echo csrfField(); ?>
                 <input type="hidden" name="thread_id" value="<?php echo $thread['id']; ?>">
+                <input type="hidden" name="category_id" value="<?php echo $thread['category_id']; ?>">
                 <button type="submit" class="btn-delete" onclick="return confirm('Delete this thread?')">Delete Thread</button>
             </form>
         <?php endif; ?>
     </article>
 
     <section class="comments">
-        <h2>Comments (<?php echo count($comments); ?>)</h2>
+        <h2>Comments (<span id="comments-count"><?php echo count($comments); ?></span>)</h2>
 
-        <?php if (empty($comments)): ?>
-            <p class="empty-state">No comments yet.</p>
-        <?php else: ?>
-            <?php foreach ($comments as $comment): ?>
-                <div class="comment">
-                    <div class="comment-header">
-                        <strong><?php echo escapeHtml($comment['username']); ?></strong>
-                        <span><?php echo escapeHtml($comment['created_at']); ?></span>
+        <div id="comments-list">
+            <?php if (empty($comments)): ?>
+                <p class="empty-state" id="empty-comments">No comments yet.</p>
+            <?php else: ?>
+                <?php foreach ($comments as $comment): ?>
+                    <div class="comment" id="comment-<?php echo $comment['id']; ?>">
+                        <div class="comment-header">
+                            <strong><?php echo escapeHtml($comment['username']); ?></strong>
+                            <span><?php echo escapeHtml($comment['created_at']); ?></span>
+                        </div>
+                        <div class="comment-content">
+                            <?php echo nl2br(escapeHtml($comment['content'])); ?>
+                        </div>
+                        <?php if (isAdmin()): ?>
+                            <form action="actions/delete_comment.php" method="POST" class="inline-form" data-action="delete_comment">
+                                <?php echo csrfField(); ?>
+                                <input type="hidden" name="comment_id" value="<?php echo $comment['id']; ?>">
+                                <input type="hidden" name="thread_id" value="<?php echo $thread['id']; ?>">
+                                <button type="submit" class="btn-delete" onclick="return confirm('Delete this comment?')">Delete</button>
+                            </form>
+                        <?php endif; ?>
                     </div>
-                    <div class="comment-content">
-                        <?php echo nl2br(escapeHtml($comment['content'])); ?>
-                    </div>
-                    <?php if (isAdmin()): ?>
-                        <form action="actions/delete_comment.php" method="POST" class="inline-form">
-                            <?php echo csrfField(); ?>
-                            <input type="hidden" name="comment_id" value="<?php echo $comment['id']; ?>">
-                            <input type="hidden" name="thread_id" value="<?php echo $thread['id']; ?>">
-                            <button type="submit" class="btn-delete" onclick="return confirm('Delete this comment?')">Delete</button>
-                        </form>
-                    <?php endif; ?>
-                </div>
-            <?php endforeach; ?>
-        <?php endif; ?>
+                <?php endforeach; ?>
+            <?php endif; ?>
+        </div>
     </section>
 
     <?php if (isLoggedIn()): ?>
         <div class="create-form">
             <h2>Post a Comment</h2>
-            <form action="actions/create_comment.php" method="POST">
+            <div id="form-error" class="alert alert-error" style="display:none;"></div>
+            <form action="actions/create_comment.php" method="POST" data-action="create_comment">
                 <?php echo csrfField(); ?>
                 <input type="hidden" name="thread_id" value="<?php echo $thread['id']; ?>">
                 <label for="content">Comment:</label>

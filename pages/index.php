@@ -43,7 +43,8 @@ if ($categoryId > 0) {
     <?php if (isLoggedIn()): ?>
         <div class="create-form">
             <h2>New Thread</h2>
-            <form action="actions/create_thread.php" method="POST">
+            <div id="form-error" class="alert alert-error" style="display:none;"></div>
+            <form action="actions/create_thread.php" method="POST" data-action="create_thread">
                 <?php echo csrfField(); ?>
                 <input type="hidden" name="category_id" value="<?php echo $categoryId; ?>">
                 <label for="title">Title:</label>
@@ -56,9 +57,9 @@ if ($categoryId > 0) {
     <?php endif; ?>
 
     <?php if (empty($threads)): ?>
-        <p class="empty-state">No threads yet. Be the first to create one!</p>
+        <p class="empty-state" id="empty-threads">No threads yet. Be the first to create one!</p>
     <?php else: ?>
-        <div class="thread-list">
+        <div class="thread-list" id="thread-list">
             <?php foreach ($threads as $thread): ?>
                 <div class="thread-item">
                     <a href="?page=thread&id=<?php echo $thread['id']; ?>">
