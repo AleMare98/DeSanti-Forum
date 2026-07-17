@@ -1,5 +1,7 @@
 // Forum application JavaScript
 
+var handledForms = new WeakSet();
+
 document.addEventListener('DOMContentLoaded', function () {
     attachFormHandlers();
 });
@@ -9,6 +11,8 @@ function attachFormHandlers() {
     var forms = document.querySelectorAll('form[data-action]');
 
     forms.forEach(function (form) {
+        if (handledForms.has(form)) return;
+        handledForms.add(form);
         form.addEventListener('submit', function (event) {
             event.preventDefault();
             handleFormSubmit(form);
@@ -35,7 +39,7 @@ function handleFormSubmit(form) {
 
     fetch(form.getAttribute('action'), {
         method: 'POST',
-        body: formData,
+        body: new URLSearchParams(formData),
         headers: {
             'X-Requested-With': 'XMLHttpRequest'
         }
@@ -95,6 +99,9 @@ function handleSuccess(action, data, form) {
         case 'create_category':
             onCategoryCreated(data, form);
             break;
+        case 'logout':
+            onLogoutSuccess();
+            break;
     }
 }
 
@@ -110,10 +117,23 @@ function onRegisterSuccess(data) {
     window.location.href = '?page=index';
 }
 
-// Replace the navbar links to show the logged-in state
+// After logout: update the navbar to the logged-out state
+function onLogoutSuccess() {
+    updateNavbar(null, null);
+}
+
+// Replace the navbar links based on login state
 function updateNavbar(username, role) {
     var navLinks = document.getElementById('nav-links');
     if (!navLinks) {
+        return;
+    }
+
+    if (username === null) {
+        navLinks.innerHTML = '<span id="nav-logged-out">'
+            + '<a href="?page=login">Login</a>'
+            + '<a href="?page=register">Register</a>'
+            + '</span>';
         return;
     }
 
@@ -125,9 +145,20 @@ function updateNavbar(username, role) {
         html += '<a href="?page=admin" id="nav-admin-link">Admin Panel</a>';
     }
 
-    html += '<a href="actions/logout.php" id="nav-logout-link">Logout</a>';
+    html += '<form action="actions/logout.php" method="POST" data-action="logout" style="display:inline">';
+    html += '<input type="hidden" name="csrf_token" value="' + getCsrfToken() + '">';
+    html += '<button type="submit" id="nav-logout-link" class="nav-link-btn">Logout</button>';
+    html += '</form>';
 
     navLinks.innerHTML = html;
+    var logoutForm = navLinks.querySelector('form[data-action="logout"]');
+    if (logoutForm) {
+        handledForms.add(logoutForm);
+        logoutForm.addEventListener('submit', function (event) {
+            event.preventDefault();
+            handleFormSubmit(logoutForm);
+        });
+    }
 }
 
 // After creating a thread: add it to the list and clear the form
@@ -298,4 +329,10 @@ function escapeHtml(text) {
     var div = document.createElement('div');
     div.appendChild(document.createTextNode(text));
     return div.innerHTML;
+}
+
+// Get the CSRF token from the hidden field in the page
+function getCsrfToken() {
+    var field = document.getElementById('csrf-token-field');
+    return field ? field.value : '';
 }

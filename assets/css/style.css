@@ -43,6 +43,21 @@ body {
     color: #ecf0f1;
 }
 
+.nav-link-btn {
+    background: none;
+    border: none;
+    color: #bdc3c7;
+    cursor: pointer;
+    font-size: inherit;
+    font-family: inherit;
+    padding: 0;
+    transition: color 0.2s;
+}
+
+.nav-link-btn:hover {
+    color: #ecf0f1;
+}
+
 .nav-user {
     color: #bdc3c7;
     font-size: 0.9rem;

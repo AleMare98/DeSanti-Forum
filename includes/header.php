@@ -8,6 +8,7 @@
     <link rel="stylesheet" href="assets/css/style.css">
 </head>
 <body>
+    <input type="hidden" id="csrf-token-field" value="<?php echo htmlspecialchars(generateCsrfToken(), ENT_QUOTES, 'UTF-8'); ?>">
     <nav class="navbar">
         <div class="nav-brand">
             <a href="?page=index">Forum</a>
@@ -20,7 +21,10 @@
                 <?php if (isAdmin()): ?>
                     <a href="?page=admin" id="nav-admin-link">Admin Panel</a>
                 <?php endif; ?>
-                <a href="actions/logout.php" id="nav-logout-link">Logout</a>
+                <form action="actions/logout.php" method="POST" data-action="logout" style="display:inline">
+                    <?php echo csrfField(); ?>
+                    <button type="submit" id="nav-logout-link" class="nav-link-btn">Logout</button>
+                </form>
             <?php else: ?>
                 <span id="nav-logged-out">
                     <a href="?page=login">Login</a>
