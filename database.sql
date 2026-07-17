@@ -13,6 +13,8 @@ CREATE TABLE IF NOT EXISTS `categories` (
     `id` INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
     `name` VARCHAR(100) NOT NULL UNIQUE,
     `created_by` INT UNSIGNED NOT NULL,
+    `source` ENUM('human', 'ai') NOT NULL DEFAULT 'human',
+    `ai_prompt_hash` CHAR(64) NULL,
     `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (`created_by`) REFERENCES `users`(`id`) ON DELETE CASCADE
 ) ENGINE=InnoDB;
@@ -23,6 +25,8 @@ CREATE TABLE IF NOT EXISTS `threads` (
     `content` TEXT NOT NULL,
     `user_id` INT UNSIGNED NOT NULL,
     `category_id` INT UNSIGNED NOT NULL,
+    `source` ENUM('human', 'ai') NOT NULL DEFAULT 'human',
+    `ai_prompt_hash` CHAR(64) NULL,
     `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (`user_id`) REFERENCES `users`(`id`) ON DELETE CASCADE,
     FOREIGN KEY (`category_id`) REFERENCES `categories`(`id`) ON DELETE CASCADE
@@ -33,9 +37,32 @@ CREATE TABLE IF NOT EXISTS `comments` (
     `content` TEXT NOT NULL,
     `user_id` INT UNSIGNED NOT NULL,
     `thread_id` INT UNSIGNED NOT NULL,
+    `source` ENUM('human', 'ai') NOT NULL DEFAULT 'human',
+    `ai_prompt_hash` CHAR(64) NULL,
     `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (`user_id`) REFERENCES `users`(`id`) ON DELETE CASCADE,
     FOREIGN KEY (`thread_id`) REFERENCES `threads`(`id`) ON DELETE CASCADE
+) ENGINE=InnoDB;
+
+CREATE TABLE IF NOT EXISTS `ai_generation_runs` (
+    `id` INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    `created_by` INT UNSIGNED NOT NULL,
+    `provider` VARCHAR(30) NOT NULL,
+    `model` VARCHAR(100) NOT NULL,
+    `seed_prompt` TEXT NOT NULL,
+    `language` VARCHAR(40) NOT NULL,
+    `tone` VARCHAR(40) NOT NULL,
+    `requested_categories` TINYINT UNSIGNED NOT NULL,
+    `requested_threads_per_category` TINYINT UNSIGNED NOT NULL,
+    `requested_comments_per_thread` TINYINT UNSIGNED NOT NULL,
+    `created_categories` INT UNSIGNED NOT NULL DEFAULT 0,
+    `created_threads` INT UNSIGNED NOT NULL DEFAULT 0,
+    `created_comments` INT UNSIGNED NOT NULL DEFAULT 0,
+    `status` ENUM('running', 'success', 'failed') NOT NULL DEFAULT 'running',
+    `error_message` VARCHAR(500) NULL,
+    `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    `completed_at` DATETIME NULL,
+    FOREIGN KEY (`created_by`) REFERENCES `users`(`id`) ON DELETE CASCADE
 ) ENGINE=InnoDB;
 
 INSERT INTO `users` (`username`, `password`, `role`) VALUES

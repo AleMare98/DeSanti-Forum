@@ -24,7 +24,7 @@ function attachFormHandlers() {
 function handleFormSubmit(form) {
     var action = form.getAttribute('data-action');
     var submitButton = form.querySelector('button[type="submit"]');
-    var errorContainer = document.getElementById('form-error');
+    var errorContainer = form.parentNode.querySelector('.form-error') || document.getElementById('form-error');
 
     // Disable button while request is in progress
     submitButton.disabled = true;
@@ -98,6 +98,9 @@ function handleSuccess(action, data, form) {
             break;
         case 'create_category':
             onCategoryCreated(data, form);
+            break;
+        case 'generate_forum_ai':
+            onAiForumGenerated(data, form);
             break;
         case 'logout':
             onLogoutSuccess();
@@ -307,17 +310,35 @@ function onCategoryCreated(data, form) {
     form.reset();
 
     // Show success message briefly
-    var errorContainer = document.getElementById('form-error');
+    var errorContainer = form.parentNode.querySelector('.form-error') || document.getElementById('form-error');
     if (errorContainer) {
         errorContainer.textContent = 'Category created successfully.';
-        errorContainer.className = 'alert alert-success';
+        errorContainer.className = 'alert alert-success form-error';
         errorContainer.style.display = 'block';
 
         setTimeout(function () {
             errorContainer.style.display = 'none';
-            errorContainer.className = 'alert alert-error';
+            errorContainer.className = 'alert alert-error form-error';
         }, 2000);
     }
+}
+
+function onAiForumGenerated(data, form) {
+    var errorContainer = form.parentNode.querySelector('.form-error') || document.getElementById('form-error');
+    var summary = data.summary || {};
+
+    if (errorContainer) {
+        errorContainer.textContent = 'AI generation completed: '
+            + (summary.categories || 0) + ' categories, '
+            + (summary.threads || 0) + ' threads, '
+            + (summary.comments || 0) + ' comments.';
+        errorContainer.className = 'alert alert-success form-error';
+        errorContainer.style.display = 'block';
+    }
+
+    setTimeout(function () {
+        window.location.reload();
+    }, 1200);
 }
 
 // Escape HTML to prevent XSS when inserting dynamic content
