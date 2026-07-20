@@ -4,7 +4,125 @@ var handledForms = new WeakSet();
 
 document.addEventListener('DOMContentLoaded', function () {
     attachFormHandlers();
+    attachChat();
 });
+
+// Load the selected category channel and keep it current without reloading the page.
+function attachChat() {
+    var panel = document.getElementById('chat-panel');
+    if (!panel) return;
+
+    var channel = document.getElementById('chat-channel');
+    var categoryField = document.getElementById('chat-category-id');
+    var form = document.getElementById('chat-form');
+    var refreshTimer;
+
+    function loadMessages() {
+        var categoryId = channel.value;
+        categoryField.value = categoryId;
+        fetch(panel.getAttribute('data-chat-endpoint') + '?category_id=' + encodeURIComponent(categoryId), {
+            headers: { 'X-Requested-With': 'XMLHttpRequest' }
+        })
+            .then(function (response) {
+                return response.json().then(function (data) {
+                    if (!response.ok) throw new Error(data.error || 'Chat non disponibile.');
+                    return data;
+                });
+            })
+            .then(function (data) { renderChatMessages(data.messages || [], panel); })
+            .catch(function (error) { showChatError(error.message, panel); });
+    }
+
+    channel.addEventListener('change', loadMessages);
+    form.addEventListener('submit', function (event) {
+        event.preventDefault();
+        var button = form.querySelector('button[type="submit"]');
+        var content = document.getElementById('chat-content');
+        button.disabled = true;
+        hideChatError(panel);
+        fetch(form.getAttribute('action'), {
+            method: 'POST',
+            body: new URLSearchParams(new FormData(form)),
+            headers: { 'X-Requested-With': 'XMLHttpRequest' }
+        })
+            .then(function (response) {
+                return response.json().then(function (data) {
+                    if (!response.ok) throw new Error(data.error || 'Invio non riuscito.');
+                    return data;
+                });
+            })
+            .then(function () { content.value = ''; loadMessages(); })
+            .catch(function (error) { showChatError(error.message, panel); })
+            .then(function () { button.disabled = false; });
+    });
+
+    loadMessages();
+    refreshTimer = window.setInterval(loadMessages, 5000);
+    window.addEventListener('beforeunload', function () { window.clearInterval(refreshTimer); });
+}
+
+function renderChatMessages(messages, panel) {
+    var list = document.getElementById('chat-messages');
+    list.textContent = '';
+    if (!messages.length) {
+        var empty = document.createElement('p');
+        empty.className = 'chat-empty';
+        empty.textContent = 'Nessun messaggio. Inizia tu la conversazione!';
+        list.appendChild(empty);
+        return;
+    }
+    messages.forEach(function (message) {
+        var item = document.createElement('div');
+        item.className = 'chat-message';
+        item.dataset.messageId = message.id;
+        var meta = document.createElement('div');
+        meta.className = 'chat-message-meta';
+        var user = document.createElement('strong');
+        user.textContent = message.username;
+        var time = document.createElement('time');
+        time.textContent = message.created_at;
+        meta.appendChild(user);
+        meta.appendChild(time);
+        item.appendChild(meta);
+        var text = document.createElement('p');
+        text.textContent = message.content;
+        item.appendChild(text);
+        if (panel.dataset.canDelete === '1') {
+            var deleteButton = document.createElement('button');
+            deleteButton.type = 'button';
+            deleteButton.className = 'chat-delete';
+            deleteButton.textContent = 'Elimina';
+            deleteButton.title = 'Elimina messaggio';
+            deleteButton.addEventListener('click', function () { deleteChatMessage(message.id, panel); });
+            item.appendChild(deleteButton);
+        }
+        list.appendChild(item);
+    });
+    list.scrollTop = list.scrollHeight;
+}
+
+function deleteChatMessage(messageId, panel) {
+    var data = new URLSearchParams({ message_id: messageId, csrf_token: getCsrfToken() });
+    fetch('actions/delete_chat_message.php', {
+        method: 'POST', body: data, headers: { 'X-Requested-With': 'XMLHttpRequest' }
+    }).then(function (response) {
+        if (!response.ok) throw new Error('Eliminazione non riuscita.');
+        var item = document.querySelector('.chat-message[data-message-id="' + messageId + '"]');
+        if (item) item.remove();
+    }).catch(function (error) { showChatError(error.message, panel); });
+}
+
+function showChatError(message, panel) {
+    var error = panel.querySelector('#chat-error');
+    error.textContent = message;
+    error.hidden = false;
+}
+
+function hideChatError(panel) {
+    var error = panel.querySelector('#chat-error');
+    error.hidden = true;
+    error.textContent = '';
+}
 
 // Intercept all form submissions and send them via AJAX
 function attachFormHandlers() {

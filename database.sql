@@ -44,6 +44,17 @@ CREATE TABLE IF NOT EXISTS `comments` (
     FOREIGN KEY (`thread_id`) REFERENCES `threads`(`id`) ON DELETE CASCADE
 ) ENGINE=InnoDB;
 
+CREATE TABLE IF NOT EXISTS `chat_messages` (
+    `id` INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    `category_id` INT UNSIGNED NOT NULL,
+    `user_id` INT UNSIGNED NOT NULL,
+    `content` VARCHAR(500) NOT NULL,
+    `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (`category_id`) REFERENCES `categories`(`id`) ON DELETE CASCADE,
+    FOREIGN KEY (`user_id`) REFERENCES `users`(`id`) ON DELETE CASCADE,
+    INDEX `idx_chat_category_created` (`category_id`, `created_at`)
+) ENGINE=InnoDB;
+
 CREATE TABLE IF NOT EXISTS `ai_generation_runs` (
     `id` INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
     `created_by` INT UNSIGNED NOT NULL,

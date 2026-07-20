@@ -308,3 +308,167 @@ button[type="submit"]:hover {
     font-style: italic;
     padding: 1rem 0;
 }
+
+/* Class chat */
+.chat-panel {
+    background: #fff;
+    border: 1px solid #dfe5e8;
+    border-radius: 6px;
+    margin-top: 2rem;
+    padding: 1.25rem;
+}
+
+.chat-heading {
+    align-items: end;
+    display: flex;
+    gap: 1rem;
+    justify-content: space-between;
+    margin-bottom: 1rem;
+}
+
+.chat-heading h2 {
+    margin-bottom: 0.15rem;
+}
+
+.chat-heading p,
+.chat-login-note {
+    color: #68757c;
+    font-size: 0.9rem;
+}
+
+.chat-channel-label {
+    color: #555;
+    font-size: 0.85rem;
+    margin: 0;
+}
+
+.chat-channel-select {
+    border: 1px solid #c9d1d5;
+    border-radius: 4px;
+    font: inherit;
+    max-width: 220px;
+    padding: 0.55rem;
+}
+
+.chat-messages {
+    background: #f7f9fa;
+    border: 1px solid #e0e5e8;
+    height: 280px;
+    overflow-y: auto;
+    padding: 0.75rem;
+}
+
+.chat-message {
+    border-bottom: 1px solid #e6eaec;
+    padding: 0.55rem 0;
+    position: relative;
+}
+
+.chat-message:last-child {
+    border-bottom: 0;
+}
+
+.chat-message-meta {
+    align-items: baseline;
+    display: flex;
+    gap: 0.6rem;
+}
+
+.chat-message-meta strong {
+    color: #2c3e50;
+}
+
+.chat-message-meta time {
+    color: #87939a;
+    font-size: 0.78rem;
+}
+
+.chat-message p {
+    margin: 0.15rem 0 0;
+    overflow-wrap: anywhere;
+    padding-right: 4.5rem;
+}
+
+.chat-delete {
+    background: transparent;
+    border: 0;
+    color: #b04a42;
+    cursor: pointer;
+    font-size: 0.78rem;
+    padding: 0.2rem;
+    position: absolute;
+    right: 0;
+    top: 0.55rem;
+}
+
+.chat-delete:hover {
+    text-decoration: underline;
+}
+
+.chat-empty {
+    color: #87939a;
+    font-style: italic;
+    margin: 0;
+    padding: 1rem 0;
+    text-align: center;
+}
+
+.chat-form {
+    display: flex;
+    gap: 0.6rem;
+    margin-top: 0.75rem;
+}
+
+.chat-form input {
+    margin-bottom: 0;
+}
+
+.chat-form button {
+    background-color: #3498db;
+    border: 0;
+    border-radius: 4px;
+    color: #fff;
+    cursor: pointer;
+    font-size: 1rem;
+    padding: 0.6rem 1.2rem;
+    white-space: nowrap;
+}
+
+.chat-form button:hover {
+    background-color: #2980b9;
+}
+
+.chat-form button:disabled {
+    cursor: not-allowed;
+    opacity: 0.6;
+}
+
+.chat-error[hidden] {
+    display: none;
+}
+
+.sr-only {
+    height: 1px;
+    margin: -1px;
+    overflow: hidden;
+    position: absolute;
+    width: 1px;
+}
+
+@media (max-width: 600px) {
+    .chat-heading {
+        align-items: stretch;
+        flex-direction: column;
+        gap: 0.4rem;
+    }
+
+    .chat-channel-select {
+        max-width: none;
+        width: 100%;
+    }
+
+    .chat-form {
+        align-items: stretch;
+        flex-direction: column;
+    }
+}
