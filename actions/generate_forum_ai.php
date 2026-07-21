@@ -37,7 +37,13 @@ if ((AI_PROVIDER === 'openai' && AI_OPENAI_API_KEY === '') || (AI_PROVIDER === '
 try {
     $draft = generateForumStructure($seedPrompt, $language, $tone, $categoryCount, $threadsPerCategory, $commentsPerThread);
     $_SESSION['last_ai_generation_at'] = time();
-    requestSuccess(['draft' => $draft], $redirect);
+    $draftToken = bin2hex(random_bytes(32));
+    $_SESSION['ai_forum_draft'] = [
+        'token' => $draftToken,
+        'draft' => $draft,
+        'prompt_hash' => hash('sha256', $seedPrompt),
+    ];
+    requestSuccess(['draft' => $draft, 'draft_token' => $draftToken], $redirect);
 } catch (Throwable $exception) {
     error_log('AI draft generation failed: ' . $exception->getMessage());
     requestError('Non è stato possibile creare la bozza. Riprova più tardi.', 502, $redirect);

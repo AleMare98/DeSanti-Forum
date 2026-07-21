@@ -6,11 +6,14 @@ require_once __DIR__ . '/../includes/csrf.php';
 require_once __DIR__ . '/../includes/sanitize.php';
 
 requireAdmin();
+$flashSuccess = $_SESSION['flash_success'] ?? '';
+unset($_SESSION['flash_success']);
 $categories = getDbConnection()->query('SELECT c.id, c.name, c.created_at, COUNT(t.id) AS thread_count FROM categories c LEFT JOIN threads t ON t.category_id = c.id GROUP BY c.id, c.name, c.created_at ORDER BY c.name')->fetchAll();
 $pageTitle = 'Amministrazione';
 require __DIR__ . '/../includes/header.php';
 ?>
 <h1>Amministrazione</h1>
+<?php if ($flashSuccess !== ''): ?><div class="alert alert-success" role="status"><?php echo escapeHtml($flashSuccess); ?></div><?php endif; ?>
 <section class="card create-form">
     <h2>Crea una categoria</h2>
     <div class="form-error" role="alert" hidden></div>

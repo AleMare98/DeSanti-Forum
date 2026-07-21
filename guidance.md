@@ -15,10 +15,10 @@ AI generation setup (Admin panel):
      - Optional: `GITHUB_MODEL=openai/gpt-4.1-mini`
 3. On MAMP/Apache, set secrets as server environment variables (`SetEnv` or equivalent), never hardcode them in repository files.
 4. Login as admin and open `?page=admin`.
-5. Use the "Generate Forum with AI" form to create categories, threads, and comments in one run.
+5. Use the "Generate Forum with AI" form to create a draft, review and edit every category, thread and comment, then choose "Pubblica bozza" to publish the complete draft.
 6. Current safeguards:
    - Admin-only endpoint
    - CSRF validation
    - Server-side range checks
    - Short per-session rate limit
-   - Transactional DB writes (all-or-nothing)
+   - Transactional DB writes during publication (all-or-nothing)

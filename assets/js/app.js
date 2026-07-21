@@ -27,7 +27,7 @@ function submitForm(form) {
         .then(readJson)
         .then(function (data) {
             if (form.dataset.action === 'generate_forum_ai') {
-                renderAiDraft(data.draft);
+                renderAiDraft(data.draft, data.draft_token);
                 form.reset();
                 return;
             }
@@ -99,16 +99,69 @@ function deleteChatMessage(messageId, panel) {
         .catch(function (reason) { showError(document.getElementById('chat-error'), reason.message); });
 }
 
-function renderAiDraft(draft) {
+function renderAiDraft(draft, draftToken) {
     var target = document.getElementById('ai-draft');
-    if (!target || !draft || !Array.isArray(draft.categories)) return;
+    if (!target || !draft || !Array.isArray(draft.categories) || !draftToken) return;
     target.replaceChildren(); target.hidden = false;
-    var heading = document.createElement('h3'); heading.textContent = 'Bozza AI — non pubblicata'; target.appendChild(heading);
-    draft.categories.forEach(function (category) {
-        var section = document.createElement('section'); var title = document.createElement('h4'); title.textContent = category.name; section.appendChild(title);
-        category.threads.forEach(function (thread) { var item = document.createElement('article'); var h5 = document.createElement('h5'); h5.textContent = thread.title; var content = document.createElement('p'); content.textContent = thread.content; item.append(h5, content); section.appendChild(item); });
-        target.appendChild(section);
+    var heading = document.createElement('h3'); heading.textContent = 'Bozza AI — modifica prima di pubblicare'; target.appendChild(heading);
+    var note = document.createElement('p'); note.className = 'helper-text'; note.textContent = 'La pubblicazione crea tutti gli elementi della bozza in un’unica operazione.'; target.appendChild(note);
+    var form = document.createElement('form'); form.action = 'actions/publish_forum_draft.php'; form.method = 'post'; form.dataset.action = 'publish_forum_draft';
+    addHidden(form, 'csrf_token', csrfToken()); addHidden(form, 'draft_token', draftToken);
+    var jsonField = document.createElement('input'); jsonField.type = 'hidden'; jsonField.name = 'draft_json'; form.appendChild(jsonField);
+
+    draft.categories.forEach(function (category, categoryIndex) {
+        var section = document.createElement('fieldset'); section.className = 'ai-draft-category';
+        var legend = document.createElement('legend'); legend.textContent = 'Categoria ' + (categoryIndex + 1); section.appendChild(legend);
+        section.dataset.categoryIndex = categoryIndex;
+        appendDraftField(section, 'Nome categoria', 'category-name', category.name, 'text');
+        (category.threads || []).forEach(function (thread, threadIndex) {
+            var item = document.createElement('div'); item.className = 'ai-draft-thread'; item.dataset.threadIndex = threadIndex;
+            var subheading = document.createElement('h4'); subheading.textContent = 'Discussione ' + (threadIndex + 1); item.appendChild(subheading);
+            appendDraftField(item, 'Titolo', 'thread-title', thread.title, 'text');
+            appendDraftField(item, 'Testo', 'thread-content', thread.content, 'textarea');
+            (thread.comments || []).forEach(function (comment, commentIndex) {
+                appendDraftField(item, 'Commento ' + (commentIndex + 1), 'comment', comment, 'textarea');
+            });
+            section.appendChild(item);
+        });
+        form.appendChild(section);
     });
+    var error = document.createElement('div'); error.className = 'form-error'; error.setAttribute('role', 'alert'); error.hidden = true; form.appendChild(error);
+    var button = document.createElement('button'); button.type = 'submit'; button.textContent = 'Pubblica bozza'; form.appendChild(button);
+    form.addEventListener('submit', function (event) {
+        event.preventDefault();
+        jsonField.value = JSON.stringify(collectDraft(form));
+        submitForm(form);
+    });
+    target.appendChild(form);
+}
+
+function addHidden(form, name, value) { var input = document.createElement('input'); input.type = 'hidden'; input.name = name; input.value = value; form.appendChild(input); }
+
+function appendDraftField(parent, labelText, className, value, type) {
+    var label = document.createElement('label'); label.textContent = labelText;
+    var field = type === 'textarea' ? document.createElement('textarea') : document.createElement('input');
+    field.className = className; field.value = typeof value === 'string' ? value : ''; field.required = true;
+    if (type !== 'textarea') field.type = 'text';
+    if (className === 'category-name') field.maxLength = 100;
+    if (className === 'thread-title') field.maxLength = 255;
+    if (className === 'thread-content') field.maxLength = 10000;
+    if (className === 'comment') field.maxLength = 5000;
+    label.appendChild(field); parent.appendChild(label);
+}
+
+function collectDraft(form) {
+    var draft = { categories: [] };
+    form.querySelectorAll('.ai-draft-category').forEach(function (section) {
+        var category = { name: section.querySelector('.category-name').value, threads: [] };
+        section.querySelectorAll('.ai-draft-thread').forEach(function (item) {
+            var thread = { title: item.querySelector('.thread-title').value, content: item.querySelector('.thread-content').value, comments: [] };
+            item.querySelectorAll('.comment').forEach(function (field) { thread.comments.push(field.value); });
+            category.threads.push(thread);
+        });
+        draft.categories.push(category);
+    });
+    return draft;
 }
 
 function readJson(response) {
