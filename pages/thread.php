@@ -25,7 +25,7 @@ if (!$thread) {
     require __DIR__ . '/../includes/footer.php';
     return;
 }
-$commentStmt = $pdo->prepare('SELECT c.id, c.content, c.created_at, u.username FROM comments c JOIN users u ON u.id = c.user_id WHERE c.thread_id = ? ORDER BY c.created_at ASC, c.id ASC');
+$commentStmt = $pdo->prepare('SELECT c.id, c.content, c.source, c.created_at, u.username FROM comments c JOIN users u ON u.id = c.user_id WHERE c.thread_id = ? ORDER BY c.created_at ASC, c.id ASC');
 $commentStmt->execute([$threadId]);
 $comments = $commentStmt->fetchAll();
 $pageTitle = $thread['title'];
@@ -47,7 +47,7 @@ require __DIR__ . '/../includes/header.php';
     <h2 id="comments-heading">Commenti (<?php echo count($comments); ?>)</h2>
     <?php foreach ($comments as $comment): ?>
         <article class="comment" id="comment-<?php echo (int) $comment['id']; ?>">
-            <p class="comment-header"><strong><?php echo escapeHtml($comment['username']); ?></strong> <time><?php echo escapeHtml($comment['created_at']); ?></time></p>
+            <p class="comment-header"><strong><?php echo escapeHtml($comment['username']); ?></strong><?php if (($comment['source'] ?? 'human') === 'ai'): ?> <span class="ai-badge">Generato dall’IA</span><?php endif; ?> <time><?php echo escapeHtml($comment['created_at']); ?></time></p>
             <div class="comment-content"><?php echo nl2br(escapeHtml($comment['content'])); ?></div>
             <?php if (isAdmin()): ?>
                 <form class="inline-form" action="actions/delete_comment.php" method="post" data-action="delete_comment">

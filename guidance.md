@@ -22,3 +22,9 @@ AI generation setup (Admin panel):
    - Server-side range checks
    - Short per-session rate limit
    - Transactional DB writes during publication (all-or-nothing)
+
+AI follow-up setup:
+1. Import the latest `database.sql` so `forum_settings` and `ai_comment_followups` exist.
+2. Keep `AI_PROVIDER=github` and `GITHUB_TOKEN` configured on the server. Optionally set `GITHUB_FOLLOWUP_MODEL`.
+3. In the administrator panel, enable automatic follow-ups. Each human comment is evaluated at most once; AI comments never trigger another evaluation.
+4. If the provider fails, the human comment remains published and the failure is recorded without exposing provider details.

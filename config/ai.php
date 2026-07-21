@@ -33,6 +33,18 @@ if (!defined('AI_RATE_LIMIT_SECONDS')) {
     define('AI_RATE_LIMIT_SECONDS', 15);
 }
 
+if (!defined('AI_FOLLOWUP_MODEL')) {
+    define('AI_FOLLOWUP_MODEL', getenv('GITHUB_FOLLOWUP_MODEL') ?: AI_GITHUB_MODEL);
+}
+
+if (!defined('AI_FOLLOWUP_TIMEOUT_SECONDS')) {
+    define('AI_FOLLOWUP_TIMEOUT_SECONDS', 20);
+}
+
+if (!defined('AI_FOLLOWUP_MAX_LENGTH')) {
+    define('AI_FOLLOWUP_MAX_LENGTH', 2000);
+}
+
 if (!defined('AI_MIN_CATEGORIES')) {
     define('AI_MIN_CATEGORIES', 1);
 }
