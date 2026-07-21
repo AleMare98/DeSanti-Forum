@@ -3,70 +3,27 @@
 require_once __DIR__ . '/../config/database.php';
 require_once __DIR__ . '/../includes/auth.php';
 require_once __DIR__ . '/../includes/csrf.php';
+require_once __DIR__ . '/../includes/http.php';
 require_once __DIR__ . '/../includes/sanitize.php';
 
-$isAjax = !empty($_SERVER['HTTP_X_REQUESTED_WITH'])
-    && strtolower($_SERVER['HTTP_X_REQUESTED_WITH']) === 'xmlhttprequest';
+$userId = requireAuthenticatedApi('../index.php?page=login');
+requirePost('../index.php?page=index');
+$threadId = postInteger('thread_id');
+$redirect = '../index.php?page=thread&id=' . $threadId;
+requireValidCsrf($redirect);
 
-function jsonResponse(array $data, int $statusCode = 200): void
-{
-    http_response_code($statusCode);
-    header('Content-Type: application/json');
-    echo json_encode($data);
-    exit;
+$content = sanitizePost('content');
+if ($threadId < 1 || $content === '' || mb_strlen($content) > 5000) {
+    requestError('Il commento deve contenere da 1 a 5000 caratteri.', 422, $redirect);
 }
 
-requireLogin();
-
-if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
-    if ($isAjax) {
-        jsonResponse(['success' => false, 'error' => 'Invalid request.'], 405);
-    }
-    header('Location: ?page=index');
-    exit;
+$pdo = getDbConnection();
+$thread = $pdo->prepare('SELECT id FROM threads WHERE id = ?');
+$thread->execute([$threadId]);
+if (!$thread->fetch()) {
+    requestError('La discussione non esiste più.', 404, '../index.php?page=index');
 }
 
-if (!verifyCsrfToken()) {
-    if ($isAjax) {
-        jsonResponse(['success' => false, 'error' => 'Invalid CSRF token.'], 403);
-    }
-    die('Invalid CSRF token.');
-}
-
-$content  = sanitizePost('content');
-$threadId = isset($_POST['thread_id']) ? (int) $_POST['thread_id'] : 0;
-
-if (strlen($content) < 1) {
-    if ($isAjax) {
-        jsonResponse(['success' => false, 'error' => 'Comment cannot be empty.'], 422);
-    }
-    die('Comment cannot be empty.');
-}
-
-if ($threadId < 1) {
-    if ($isAjax) {
-        jsonResponse(['success' => false, 'error' => 'Invalid thread.'], 422);
-    }
-    die('Invalid thread.');
-}
-
-$pdo  = getDbConnection();
 $stmt = $pdo->prepare('INSERT INTO comments (content, user_id, thread_id) VALUES (?, ?, ?)');
-$stmt->execute([$content, getCurrentUserId(), $threadId]);
-
-$commentId = $pdo->lastInsertId();
-
-if ($isAjax) {
-    jsonResponse([
-        'success' => true,
-        'comment' => [
-            'id'         => (int) $commentId,
-            'content'    => $content,
-            'username'   => getCurrentUsername(),
-            'created_at' => date('Y-m-d H:i:s'),
-        ],
-    ]);
-}
-
-header('Location: ?page=thread&id=' . $threadId);
-exit;
+$stmt->execute([$content, $userId, $threadId]);
+requestSuccess(['comment' => ['id' => (int) $pdo->lastInsertId(), 'content' => $content]], $redirect);

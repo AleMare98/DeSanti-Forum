@@ -1,477 +1,123 @@
-// Forum application JavaScript
-
-var handledForms = new WeakSet();
-
 document.addEventListener('DOMContentLoaded', function () {
-    attachFormHandlers();
+    attachAsyncForms();
     attachChat();
 });
 
-// Load the selected category channel and keep it current without reloading the page.
+function attachAsyncForms() {
+    document.querySelectorAll('form[data-action]').forEach(function (form) {
+        form.addEventListener('submit', function (event) {
+            if (form.dataset.confirm && !window.confirm(form.dataset.confirm)) return;
+            event.preventDefault();
+            submitForm(form);
+        });
+    });
+}
+
+function submitForm(form) {
+    var button = form.querySelector('button[type="submit"]');
+    var error = form.parentElement.querySelector('.form-error');
+    if (button) button.disabled = true;
+    hideError(error);
+
+    fetch(form.action, {
+        method: 'POST',
+        headers: { 'X-Requested-With': 'XMLHttpRequest' },
+        body: new URLSearchParams(new FormData(form))
+    })
+        .then(readJson)
+        .then(function (data) {
+            if (form.dataset.action === 'generate_forum_ai') {
+                renderAiDraft(data.draft);
+                form.reset();
+                return;
+            }
+            if (data.thread && data.thread.id) {
+                window.location.assign('index.php?page=thread&id=' + encodeURIComponent(data.thread.id));
+                return;
+            }
+            window.location.reload();
+        })
+        .catch(function (reason) { showError(error, reason.message); })
+        .finally(function () { if (button) button.disabled = false; });
+}
+
 function attachChat() {
     var panel = document.getElementById('chat-panel');
     if (!panel) return;
-
-    var channel = document.getElementById('chat-channel');
-    var categoryField = document.getElementById('chat-category-id');
+    var categoryId = panel.dataset.categoryId;
     var form = document.getElementById('chat-form');
-    var refreshTimer;
+    var error = document.getElementById('chat-error');
+    var timer = window.setInterval(function () { loadChat(categoryId, panel, error); }, 10000);
 
-    function loadMessages() {
-        var categoryId = channel.value;
-        categoryField.value = categoryId;
-        fetch(panel.getAttribute('data-chat-endpoint') + '?category_id=' + encodeURIComponent(categoryId), {
-            headers: { 'X-Requested-With': 'XMLHttpRequest' }
-        })
-            .then(function (response) {
-                return response.json().then(function (data) {
-                    if (!response.ok) throw new Error(data.error || 'Chat non disponibile.');
-                    return data;
-                });
-            })
-            .then(function (data) { renderChatMessages(data.messages || [], panel); })
-            .catch(function (error) { showChatError(error.message, panel); });
-    }
-
-    channel.addEventListener('change', loadMessages);
+    loadChat(categoryId, panel, error);
     form.addEventListener('submit', function (event) {
         event.preventDefault();
-        var button = form.querySelector('button[type="submit"]');
-        var content = document.getElementById('chat-content');
+        var button = form.querySelector('button');
         button.disabled = true;
-        hideChatError(panel);
-        fetch(form.getAttribute('action'), {
-            method: 'POST',
-            body: new URLSearchParams(new FormData(form)),
-            headers: { 'X-Requested-With': 'XMLHttpRequest' }
-        })
-            .then(function (response) {
-                return response.json().then(function (data) {
-                    if (!response.ok) throw new Error(data.error || 'Invio non riuscito.');
-                    return data;
-                });
-            })
-            .then(function () { content.value = ''; loadMessages(); })
-            .catch(function (error) { showChatError(error.message, panel); })
-            .then(function () { button.disabled = false; });
+        hideError(error);
+        fetch(form.action, { method: 'POST', headers: { 'X-Requested-With': 'XMLHttpRequest' }, body: new URLSearchParams(new FormData(form)) })
+            .then(readJson)
+            .then(function () { form.reset(); loadChat(categoryId, panel, error); })
+            .catch(function (reason) { showError(error, reason.message); })
+            .finally(function () { button.disabled = false; });
     });
-
-    loadMessages();
-    refreshTimer = window.setInterval(loadMessages, 5000);
-    window.addEventListener('beforeunload', function () { window.clearInterval(refreshTimer); });
+    window.addEventListener('beforeunload', function () { window.clearInterval(timer); }, { once: true });
 }
 
-function renderChatMessages(messages, panel) {
-    var list = document.getElementById('chat-messages');
-    list.textContent = '';
+function loadChat(categoryId, panel, error) {
+    fetch('actions/get_chat_messages.php?category_id=' + encodeURIComponent(categoryId), { headers: { 'X-Requested-With': 'XMLHttpRequest' } })
+        .then(readJson)
+        .then(function (data) { renderMessages(data.messages || [], panel); })
+        .catch(function (reason) { showError(error, reason.message); });
+}
+
+function renderMessages(messages, panel) {
+    var container = document.getElementById('chat-messages');
+    container.replaceChildren();
     if (!messages.length) {
-        var empty = document.createElement('p');
-        empty.className = 'chat-empty';
-        empty.textContent = 'Nessun messaggio. Inizia tu la conversazione!';
-        list.appendChild(empty);
-        return;
+        var empty = document.createElement('p'); empty.className = 'chat-empty'; empty.textContent = 'Nessun messaggio per ora.'; container.appendChild(empty); return;
     }
     messages.forEach(function (message) {
-        var item = document.createElement('div');
-        item.className = 'chat-message';
-        item.dataset.messageId = message.id;
-        var meta = document.createElement('div');
-        meta.className = 'chat-message-meta';
-        var user = document.createElement('strong');
-        user.textContent = message.username;
-        var time = document.createElement('time');
-        time.textContent = message.created_at;
-        meta.appendChild(user);
-        meta.appendChild(time);
-        item.appendChild(meta);
-        var text = document.createElement('p');
-        text.textContent = message.content;
-        item.appendChild(text);
+        var article = document.createElement('article'); article.className = 'chat-message';
+        var meta = document.createElement('p'); meta.className = 'chat-message-meta'; meta.textContent = message.username + ' · ' + message.created_at;
+        var text = document.createElement('p'); text.textContent = message.content;
+        article.append(meta, text);
         if (panel.dataset.canDelete === '1') {
-            var deleteButton = document.createElement('button');
-            deleteButton.type = 'button';
-            deleteButton.className = 'chat-delete';
-            deleteButton.textContent = 'Elimina';
-            deleteButton.title = 'Elimina messaggio';
-            deleteButton.addEventListener('click', function () { deleteChatMessage(message.id, panel); });
-            item.appendChild(deleteButton);
+            var remove = document.createElement('button'); remove.type = 'button'; remove.className = 'chat-delete'; remove.textContent = 'Elimina';
+            remove.addEventListener('click', function () { deleteChatMessage(message.id, panel); }); article.appendChild(remove);
         }
-        list.appendChild(item);
+        container.appendChild(article);
     });
-    list.scrollTop = list.scrollHeight;
+    container.scrollTop = container.scrollHeight;
 }
 
 function deleteChatMessage(messageId, panel) {
-    var data = new URLSearchParams({ message_id: messageId, csrf_token: getCsrfToken() });
-    fetch('actions/delete_chat_message.php', {
-        method: 'POST', body: data, headers: { 'X-Requested-With': 'XMLHttpRequest' }
-    }).then(function (response) {
-        if (!response.ok) throw new Error('Eliminazione non riuscita.');
-        var item = document.querySelector('.chat-message[data-message-id="' + messageId + '"]');
-        if (item) item.remove();
-    }).catch(function (error) { showChatError(error.message, panel); });
+    if (!window.confirm('Eliminare questo messaggio?')) return;
+    fetch('actions/delete_chat_message.php', { method: 'POST', headers: { 'X-Requested-With': 'XMLHttpRequest' }, body: new URLSearchParams({ message_id: messageId, csrf_token: csrfToken() }) })
+        .then(readJson)
+        .then(function () { loadChat(panel.dataset.categoryId, panel, document.getElementById('chat-error')); })
+        .catch(function (reason) { showError(document.getElementById('chat-error'), reason.message); });
 }
 
-function showChatError(message, panel) {
-    var error = panel.querySelector('#chat-error');
-    error.textContent = message;
-    error.hidden = false;
-}
-
-function hideChatError(panel) {
-    var error = panel.querySelector('#chat-error');
-    error.hidden = true;
-    error.textContent = '';
-}
-
-// Intercept all form submissions and send them via AJAX
-function attachFormHandlers() {
-    var forms = document.querySelectorAll('form[data-action]');
-
-    forms.forEach(function (form) {
-        if (handledForms.has(form)) return;
-        handledForms.add(form);
-        form.addEventListener('submit', function (event) {
-            event.preventDefault();
-            handleFormSubmit(form);
-        });
+function renderAiDraft(draft) {
+    var target = document.getElementById('ai-draft');
+    if (!target || !draft || !Array.isArray(draft.categories)) return;
+    target.replaceChildren(); target.hidden = false;
+    var heading = document.createElement('h3'); heading.textContent = 'Bozza AI — non pubblicata'; target.appendChild(heading);
+    draft.categories.forEach(function (category) {
+        var section = document.createElement('section'); var title = document.createElement('h4'); title.textContent = category.name; section.appendChild(title);
+        category.threads.forEach(function (thread) { var item = document.createElement('article'); var h5 = document.createElement('h5'); h5.textContent = thread.title; var content = document.createElement('p'); content.textContent = thread.content; item.append(h5, content); section.appendChild(item); });
+        target.appendChild(section);
     });
 }
 
-// Send form data via fetch and handle the JSON response
-function handleFormSubmit(form) {
-    var action = form.getAttribute('data-action');
-    var submitButton = form.querySelector('button[type="submit"]');
-    var errorContainer = form.parentNode.querySelector('.form-error') || document.getElementById('form-error');
-
-    // Disable button while request is in progress
-    submitButton.disabled = true;
-
-    // Hide any previous errors
-    if (errorContainer) {
-        errorContainer.style.display = 'none';
-        errorContainer.textContent = '';
-    }
-
-    var formData = new FormData(form);
-
-    fetch(form.getAttribute('action'), {
-        method: 'POST',
-        body: new URLSearchParams(formData),
-        headers: {
-            'X-Requested-With': 'XMLHttpRequest'
-        }
-    })
-    .then(function (response) {
-        return response.json().then(function (data) {
-            return { ok: response.ok, data: data };
-        });
-    })
-    .then(function (result) {
-        submitButton.disabled = false;
-
-        if (!result.ok) {
-            showError(errorContainer, result.data.error || 'Something went wrong.');
-            return;
-        }
-
-        handleSuccess(action, result.data, form);
-    })
-    .catch(function () {
-        submitButton.disabled = false;
-        showError(errorContainer, 'Network error. Please try again.');
+function readJson(response) {
+    return response.json().catch(function () { throw new Error('Risposta non valida dal server.'); }).then(function (data) {
+        if (!response.ok || !data.success) throw new Error(data.error || 'Operazione non riuscita.');
+        return data;
     });
 }
 
-// Display an error message near the form
-function showError(container, message) {
-    if (container) {
-        container.textContent = message;
-        container.style.display = 'block';
-    } else {
-        alert(message);
-    }
-}
-
-// Handle successful responses based on the action type
-function handleSuccess(action, data, form) {
-    switch (action) {
-        case 'login':
-            onLoginSuccess(data);
-            break;
-        case 'register':
-            onRegisterSuccess(data);
-            break;
-        case 'create_thread':
-            onThreadCreated(data, form);
-            break;
-        case 'create_comment':
-            onCommentCreated(data, form);
-            break;
-        case 'delete_thread':
-            onThreadDeleted(form);
-            break;
-        case 'delete_comment':
-            onCommentDeleted(form);
-            break;
-        case 'create_category':
-            onCategoryCreated(data, form);
-            break;
-        case 'generate_forum_ai':
-            onAiForumGenerated(data, form);
-            break;
-        case 'logout':
-            onLogoutSuccess();
-            break;
-    }
-}
-
-// After login: update the navbar and redirect to the index page
-function onLoginSuccess(data) {
-    updateNavbar(data.username, data.role);
-    window.location.href = '?page=index';
-}
-
-// After registration: update the navbar and redirect to the index page
-function onRegisterSuccess(data) {
-    updateNavbar(data.username, data.role);
-    window.location.href = '?page=index';
-}
-
-// After logout: update the navbar to the logged-out state
-function onLogoutSuccess() {
-    updateNavbar(null, null);
-}
-
-// Replace the navbar links based on login state
-function updateNavbar(username, role) {
-    var navLinks = document.getElementById('nav-links');
-    if (!navLinks) {
-        return;
-    }
-
-    if (username === null) {
-        navLinks.innerHTML = '<span id="nav-logged-out">'
-            + '<a href="?page=login">Login</a>'
-            + '<a href="?page=register">Register</a>'
-            + '</span>';
-        return;
-    }
-
-    var html = '<span class="nav-user" id="nav-logged-in">';
-    html += 'Logged in as <strong id="nav-username">' + escapeHtml(username) + '</strong>';
-    html += '</span>';
-
-    if (role === 'admin') {
-        html += '<a href="?page=admin" id="nav-admin-link">Admin Panel</a>';
-    }
-
-    html += '<form action="actions/logout.php" method="POST" data-action="logout" style="display:inline">';
-    html += '<input type="hidden" name="csrf_token" value="' + getCsrfToken() + '">';
-    html += '<button type="submit" id="nav-logout-link" class="nav-link-btn">Logout</button>';
-    html += '</form>';
-
-    navLinks.innerHTML = html;
-    var logoutForm = navLinks.querySelector('form[data-action="logout"]');
-    if (logoutForm) {
-        handledForms.add(logoutForm);
-        logoutForm.addEventListener('submit', function (event) {
-            event.preventDefault();
-            handleFormSubmit(logoutForm);
-        });
-    }
-}
-
-// After creating a thread: add it to the list and clear the form
-function onThreadCreated(data, form) {
-    var threadList = document.getElementById('thread-list');
-    var emptyState = document.getElementById('empty-threads');
-
-    // Remove the "no threads yet" message if present
-    if (emptyState) {
-        emptyState.remove();
-    }
-
-    // Create the thread list container if it didn't exist
-    if (!threadList) {
-        threadList = document.createElement('div');
-        threadList.className = 'thread-list';
-        threadList.id = 'thread-list';
-
-        var emptyThreads = document.getElementById('empty-threads');
-        if (emptyThreads) {
-            emptyThreads.parentNode.insertBefore(threadList, emptyThreads.nextSibling);
-        } else {
-            // Insert before the create-form's parent
-            var createForm = form.closest('.create-form');
-            createForm.parentNode.insertBefore(threadList, createForm.nextSibling);
-        }
-    }
-
-    var thread = data.thread;
-
-    var item = document.createElement('div');
-    item.className = 'thread-item';
-    item.innerHTML = '<a href="?page=thread&id=' + thread.id + '">' + escapeHtml(thread.title) + '</a>'
-        + '<span class="thread-meta">by ' + escapeHtml(thread.username)
-        + ' on ' + escapeHtml(thread.created_at) + '</span>';
-
-    // Add to the top of the list (newest first)
-    threadList.insertBefore(item, threadList.firstChild);
-
-    // Clear the form
-    form.reset();
-
-    // Navigate to the new thread
-    window.location.href = '?page=thread&id=' + thread.id;
-}
-
-// After posting a comment: append it to the comments section and clear the form
-function onCommentCreated(data, form) {
-    var commentsList = document.getElementById('comments-list');
-    var emptyState = document.getElementById('empty-comments');
-    var countSpan = document.getElementById('comments-count');
-
-    // Remove the "no comments yet" message if present
-    if (emptyState) {
-        emptyState.remove();
-    }
-
-    // Update the comment count
-    if (countSpan) {
-        var currentCount = parseInt(countSpan.textContent, 10) || 0;
-        countSpan.textContent = currentCount + 1;
-    }
-
-    var comment = data.comment;
-
-    var div = document.createElement('div');
-    div.className = 'comment';
-    div.id = 'comment-' + comment.id;
-    div.innerHTML = '<div class="comment-header">'
-        + '<strong>' + escapeHtml(comment.username) + '</strong>'
-        + '<span>' + escapeHtml(comment.created_at) + '</span>'
-        + '</div>'
-        + '<div class="comment-content">'
-        + escapeHtml(comment.content).replace(/\n/g, '<br>')
-        + '</div>';
-
-    commentsList.appendChild(div);
-
-    // Clear the form
-    form.reset();
-}
-
-// After deleting a thread: navigate back to the category
-function onThreadDeleted(form) {
-    var categoryIdInput = form.querySelector('input[name="category_id"]');
-    var categoryId = categoryIdInput ? categoryIdInput.value : '';
-
-    if (categoryId) {
-        window.location.href = '?page=category&id=' + categoryId;
-    } else {
-        window.location.href = '?page=index';
-    }
-}
-
-// After deleting a comment: remove it from the page and update the count
-function onCommentDeleted(form) {
-    var commentIdInput = form.querySelector('input[name="comment_id"]');
-    var commentId = commentIdInput ? 'comment-' + commentIdInput.value : '';
-
-    var commentElement = document.getElementById(commentId);
-    if (commentElement) {
-        commentElement.remove();
-    }
-
-    // Update the comment count
-    var countSpan = document.getElementById('comments-count');
-    if (countSpan) {
-        var currentCount = parseInt(countSpan.textContent, 10) || 0;
-        countSpan.textContent = Math.max(0, currentCount - 1);
-    }
-}
-
-// After creating a category: add it to the list and clear the form
-function onCategoryCreated(data, form) {
-    var categoryList = document.getElementById('category-list');
-    var emptyState = document.getElementById('empty-categories');
-
-    // Remove the "no categories yet" message if present
-    if (emptyState) {
-        emptyState.remove();
-    }
-
-    // Create the category list container if it didn't exist
-    if (!categoryList) {
-        categoryList = document.createElement('div');
-        categoryList.className = 'category-list';
-        categoryList.id = 'category-list';
-
-        var heading = document.querySelector('h2');
-        if (heading && heading.nextSibling) {
-            heading.parentNode.insertBefore(categoryList, heading.nextSibling);
-        }
-    }
-
-    var cat = data.category;
-
-    var item = document.createElement('div');
-    item.className = 'category-item';
-    item.innerHTML = '<a href="?page=category&id=' + cat.id + '">' + escapeHtml(cat.name) + '</a>'
-        + '<span class="category-meta">created on ' + escapeHtml(cat.created_at) + '</span>';
-
-    // Add to the top of the list (newest first)
-    categoryList.insertBefore(item, categoryList.firstChild);
-
-    // Clear the form
-    form.reset();
-
-    // Show success message briefly
-    var errorContainer = form.parentNode.querySelector('.form-error') || document.getElementById('form-error');
-    if (errorContainer) {
-        errorContainer.textContent = 'Category created successfully.';
-        errorContainer.className = 'alert alert-success form-error';
-        errorContainer.style.display = 'block';
-
-        setTimeout(function () {
-            errorContainer.style.display = 'none';
-            errorContainer.className = 'alert alert-error form-error';
-        }, 2000);
-    }
-}
-
-function onAiForumGenerated(data, form) {
-    var errorContainer = form.parentNode.querySelector('.form-error') || document.getElementById('form-error');
-    var summary = data.summary || {};
-
-    if (errorContainer) {
-        errorContainer.textContent = 'AI generation completed: '
-            + (summary.categories || 0) + ' categories, '
-            + (summary.threads || 0) + ' threads, '
-            + (summary.comments || 0) + ' comments.';
-        errorContainer.className = 'alert alert-success form-error';
-        errorContainer.style.display = 'block';
-    }
-
-    setTimeout(function () {
-        window.location.reload();
-    }, 1200);
-}
-
-// Escape HTML to prevent XSS when inserting dynamic content
-function escapeHtml(text) {
-    if (text === null || text === undefined) {
-        return '';
-    }
-
-    var div = document.createElement('div');
-    div.appendChild(document.createTextNode(text));
-    return div.innerHTML;
-}
-
-// Get the CSRF token from the hidden field in the page
-function getCsrfToken() {
-    var field = document.getElementById('csrf-token-field');
-    return field ? field.value : '';
-}
+function showError(element, message) { if (element) { element.textContent = message; element.hidden = false; } }
+function hideError(element) { if (element) { element.textContent = ''; element.hidden = true; } }
+function csrfToken() { var token = document.getElementById('csrf-token-field'); return token ? token.value : ''; }

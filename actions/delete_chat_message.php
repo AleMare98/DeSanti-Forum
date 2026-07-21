@@ -3,26 +3,21 @@
 require_once __DIR__ . '/../config/database.php';
 require_once __DIR__ . '/../includes/auth.php';
 require_once __DIR__ . '/../includes/csrf.php';
+require_once __DIR__ . '/../includes/http.php';
+require_once __DIR__ . '/../includes/sanitize.php';
 
-header('Content-Type: application/json');
-if (!isAdmin()) {
-    http_response_code(403);
-    echo json_encode(['success' => false, 'error' => 'Permesso negato.']);
-    exit;
-}
-if ($_SERVER['REQUEST_METHOD'] !== 'POST' || !verifyCsrfToken()) {
-    http_response_code(403);
-    echo json_encode(['success' => false, 'error' => 'Richiesta non valida.']);
-    exit;
-}
+requireAdminApi('../index.php?page=index');
+requirePost('../index.php?page=index');
+requireValidCsrf('../index.php?page=index');
 
-$messageId = isset($_POST['message_id']) ? (int) $_POST['message_id'] : 0;
+$messageId = postInteger('message_id');
 if ($messageId < 1) {
-    http_response_code(422);
-    echo json_encode(['success' => false, 'error' => 'Messaggio non valido.']);
-    exit;
+    requestError('Messaggio non valido.', 422, '../index.php?page=index');
 }
 
 $stmt = getDbConnection()->prepare('DELETE FROM chat_messages WHERE id = ?');
 $stmt->execute([$messageId]);
-echo json_encode(['success' => true, 'message_id' => $messageId]);
+if ($stmt->rowCount() !== 1) {
+    requestError('Il messaggio non è stato trovato.', 404, '../index.php?page=index');
+}
+requestSuccess(['message_id' => $messageId], '../index.php?page=index');

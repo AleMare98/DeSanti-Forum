@@ -6,83 +6,34 @@ require_once __DIR__ . '/../includes/csrf.php';
 require_once __DIR__ . '/../includes/sanitize.php';
 
 requireAdmin();
-
-$pdo  = getDbConnection();
-$stmt = $pdo->query(
-    'SELECT id, name, created_at FROM categories ORDER BY name ASC'
-);
-$categories = $stmt->fetchAll();
-
-$pageTitle = 'Admin Panel';
-require_once __DIR__ . '/../includes/header.php';
+$categories = getDbConnection()->query('SELECT c.id, c.name, c.created_at, COUNT(t.id) AS thread_count FROM categories c LEFT JOIN threads t ON t.category_id = c.id GROUP BY c.id, c.name, c.created_at ORDER BY c.name')->fetchAll();
+$pageTitle = 'Amministrazione';
+require __DIR__ . '/../includes/header.php';
 ?>
-
-    <h1>Admin Panel</h1>
-
-    <?php if (isset($_GET['msg']) && $_GET['msg'] === 'created'): ?>
-        <div class="alert alert-success">Category created successfully.</div>
-    <?php endif; ?>
-    <?php if (isset($_GET['msg']) && $_GET['msg'] === 'ai_generated'): ?>
-        <div class="alert alert-success">AI content generated successfully.</div>
-    <?php endif; ?>
-
-    <div class="create-form">
-        <h2>Create Category</h2>
-        <div class="alert alert-error form-error" style="display:none;"></div>
-        <form action="actions/create_category.php" method="POST" data-action="create_category">
-            <?php echo csrfField(); ?>
-            <label for="name">Category Name:</label>
-            <input type="text" id="name" name="name" maxlength="100" required>
-            <button type="submit">Create Category</button>
-        </form>
-    </div>
-
-    <div class="create-form">
-        <h2>Generate Forum with AI</h2>
-        <div class="alert alert-error form-error" style="display:none;"></div>
-        <form action="actions/generate_forum_ai.php" method="POST" data-action="generate_forum_ai">
-            <?php echo csrfField(); ?>
-
-            <label for="seed_prompt">Seed Prompt:</label>
-            <textarea id="seed_prompt" name="seed_prompt" rows="4" maxlength="2000" required>Generate engaging forum content about technology trends, practical coding tips, and developer career growth.</textarea>
-
-            <label for="language">Language:</label>
-            <input type="text" id="language" name="language" maxlength="40" value="Italian" required>
-
-            <label for="tone">Tone:</label>
-            <input type="text" id="tone" name="tone" maxlength="40" value="Friendly and practical" required>
-
-            <label for="category_count">New Categories:</label>
-            <input type="number" id="category_count" name="category_count" min="1" max="5" value="2" required>
-
-            <label for="threads_per_category">Threads per Category:</label>
-            <input type="number" id="threads_per_category" name="threads_per_category" min="1" max="5" value="3" required>
-
-            <label for="comments_per_thread">Comments per Thread:</label>
-            <input type="number" id="comments_per_thread" name="comments_per_thread" min="0" max="6" value="2" required>
-
-            <button type="submit">Generate Content</button>
-        </form>
-    </div>
-
-    <h2>Existing Categories</h2>
-
-    <?php if (empty($categories)): ?>
-        <p class="empty-state" id="empty-categories">No categories yet.</p>
-    <?php else: ?>
-        <div class="category-list" id="category-list">
-            <?php foreach ($categories as $cat): ?>
-                <div class="category-item">
-                    <a href="?page=category&id=<?php echo $cat['id']; ?>">
-                        <?php echo escapeHtml($cat['name']); ?>
-                    </a>
-                    <span class="category-meta">
-                        created on <?php echo escapeHtml($cat['created_at']); ?>
-                    </span>
-                </div>
-            <?php endforeach; ?>
-        </div>
-    <?php endif; ?>
-
-<?php
-require_once __DIR__ . '/../includes/footer.php';
+<h1>Amministrazione</h1>
+<section class="card create-form">
+    <h2>Crea una categoria</h2>
+    <div class="form-error" role="alert" hidden></div>
+    <form action="actions/create_category.php" method="post" data-action="create_category">
+        <?php echo csrfField(); ?>
+        <label for="category-name">Nome</label><input id="category-name" name="name" maxlength="100" required>
+        <button type="submit">Crea categoria</button>
+    </form>
+</section>
+<section class="card create-form">
+    <h2>Genera una bozza con AI</h2>
+    <p class="helper-text">La bozza non viene pubblicata e non modifica il forum.</p>
+    <div class="form-error" role="alert" hidden></div>
+    <form action="actions/generate_forum_ai.php" method="post" data-action="generate_forum_ai">
+        <?php echo csrfField(); ?>
+        <label for="seed-prompt">Argomento</label><textarea id="seed-prompt" name="seed_prompt" maxlength="2000" rows="4" required></textarea>
+        <div class="form-grid"><div><label for="language">Lingua</label><input id="language" name="language" maxlength="40" value="Italiano" required></div><div><label for="tone">Tono</label><input id="tone" name="tone" maxlength="40" value="Amichevole e pratico" required></div></div>
+        <div class="form-grid"><div><label for="category-count">Categorie</label><input id="category-count" name="category_count" type="number" min="1" max="5" value="1" required></div><div><label for="threads-count">Discussioni per categoria</label><input id="threads-count" name="threads_per_category" type="number" min="1" max="5" value="2" required></div><div><label for="comments-count">Commenti per discussione</label><input id="comments-count" name="comments_per_thread" type="number" min="0" max="6" value="1" required></div></div>
+        <button type="submit">Crea bozza</button>
+    </form>
+    <div id="ai-draft" class="ai-draft" hidden aria-live="polite"></div>
+</section>
+<section><h2>Categorie esistenti</h2>
+<?php if (!$categories): ?><p class="empty-state">Nessuna categoria.</p><?php else: ?><div class="category-list"><?php foreach ($categories as $category): ?><article class="category-item"><a href="index.php?page=category&amp;id=<?php echo (int) $category['id']; ?>"><?php echo escapeHtml($category['name']); ?></a><span class="category-meta"><?php echo (int) $category['thread_count']; ?> discussioni</span></article><?php endforeach; ?></div><?php endif; ?>
+</section>
+<?php require __DIR__ . '/../includes/footer.php'; ?>

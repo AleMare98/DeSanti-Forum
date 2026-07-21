@@ -16,7 +16,8 @@ CREATE TABLE IF NOT EXISTS `categories` (
     `source` ENUM('human', 'ai') NOT NULL DEFAULT 'human',
     `ai_prompt_hash` CHAR(64) NULL,
     `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (`created_by`) REFERENCES `users`(`id`) ON DELETE CASCADE
+    FOREIGN KEY (`created_by`) REFERENCES `users`(`id`) ON DELETE CASCADE,
+    INDEX `idx_categories_name` (`name`)
 ) ENGINE=InnoDB;
 
 CREATE TABLE IF NOT EXISTS `threads` (
@@ -29,7 +30,8 @@ CREATE TABLE IF NOT EXISTS `threads` (
     `ai_prompt_hash` CHAR(64) NULL,
     `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (`user_id`) REFERENCES `users`(`id`) ON DELETE CASCADE,
-    FOREIGN KEY (`category_id`) REFERENCES `categories`(`id`) ON DELETE CASCADE
+    FOREIGN KEY (`category_id`) REFERENCES `categories`(`id`) ON DELETE CASCADE,
+    INDEX `idx_threads_category_created` (`category_id`, `created_at`)
 ) ENGINE=InnoDB;
 
 CREATE TABLE IF NOT EXISTS `comments` (
@@ -41,7 +43,8 @@ CREATE TABLE IF NOT EXISTS `comments` (
     `ai_prompt_hash` CHAR(64) NULL,
     `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (`user_id`) REFERENCES `users`(`id`) ON DELETE CASCADE,
-    FOREIGN KEY (`thread_id`) REFERENCES `threads`(`id`) ON DELETE CASCADE
+    FOREIGN KEY (`thread_id`) REFERENCES `threads`(`id`) ON DELETE CASCADE,
+    INDEX `idx_comments_thread_created` (`thread_id`, `created_at`)
 ) ENGINE=InnoDB;
 
 CREATE TABLE IF NOT EXISTS `chat_messages` (

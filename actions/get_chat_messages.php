@@ -2,32 +2,26 @@
 
 require_once __DIR__ . '/../config/database.php';
 require_once __DIR__ . '/../includes/auth.php';
+require_once __DIR__ . '/../includes/http.php';
+require_once __DIR__ . '/../includes/sanitize.php';
 
-header('Content-Type: application/json');
-
-if (!isLoggedIn()) {
-    http_response_code(401);
-    echo json_encode(['success' => false, 'error' => 'Login richiesto.']);
-    exit;
-}
-
-$categoryId = isset($_GET['category_id']) ? (int) $_GET['category_id'] : 0;
+requireAuthenticatedApi('../index.php?page=login');
+$categoryId = getInteger('category_id');
 if ($categoryId < 1) {
-    http_response_code(422);
-    echo json_encode(['success' => false, 'error' => 'Canale non valido.']);
-    exit;
+    jsonResponse(['success' => false, 'error' => 'Canale non valido.'], 422);
 }
 
 $pdo = getDbConnection();
+$category = $pdo->prepare('SELECT id FROM categories WHERE id = ?');
+$category->execute([$categoryId]);
+if (!$category->fetch()) {
+    jsonResponse(['success' => false, 'error' => 'Canale non trovato.'], 404);
+}
+
 $stmt = $pdo->prepare(
     'SELECT cm.id, cm.content, cm.created_at, u.username
-     FROM chat_messages cm
-     JOIN users u ON u.id = cm.user_id
-     WHERE cm.category_id = ?
-     ORDER BY cm.created_at DESC, cm.id DESC
-     LIMIT 50'
+     FROM chat_messages cm JOIN users u ON u.id = cm.user_id
+     WHERE cm.category_id = ? ORDER BY cm.created_at ASC, cm.id ASC LIMIT 50'
 );
 $stmt->execute([$categoryId]);
-$messages = array_reverse($stmt->fetchAll());
-
-echo json_encode(['success' => true, 'messages' => $messages]);
+jsonResponse(['success' => true, 'messages' => $stmt->fetchAll()]);

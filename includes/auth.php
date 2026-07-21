@@ -3,6 +3,11 @@
 function startSession(): void
 {
     if (session_status() === PHP_SESSION_NONE) {
+        session_set_cookie_params([
+            'httponly' => true,
+            'secure' => !empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off',
+            'samesite' => 'Lax',
+        ]);
         session_start();
     }
 }
@@ -43,14 +48,18 @@ function loginUser(int $userId, string $username, string $role): void
 function logoutUser(): void
 {
     startSession();
-    session_unset();
+    $_SESSION = [];
+    if (ini_get('session.use_cookies')) {
+        $params = session_get_cookie_params();
+        setcookie(session_name(), '', time() - 42000, $params['path'], $params['domain'], (bool) $params['secure'], (bool) $params['httponly']);
+    }
     session_destroy();
 }
 
 function requireLogin(): void
 {
     if (!isLoggedIn()) {
-        header('Location: ?page=login');
+        header('Location: index.php?page=login');
         exit;
     }
 }
@@ -59,7 +68,7 @@ function requireAdmin(): void
 {
     requireLogin();
     if (!isAdmin()) {
-        header('Location: ?page=index');
+        header('Location: index.php?page=index');
         exit;
     }
 }

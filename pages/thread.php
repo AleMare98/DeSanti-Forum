@@ -2,115 +2,66 @@
 
 require_once __DIR__ . '/../config/database.php';
 require_once __DIR__ . '/../includes/auth.php';
-require_once __DIR__ . '/../includes/sanitize.php';
 require_once __DIR__ . '/../includes/csrf.php';
+require_once __DIR__ . '/../includes/sanitize.php';
 
-$threadId = isset($_GET['id']) ? (int) $_GET['id'] : 0;
-
+$threadId = getInteger('id');
 if ($threadId < 1) {
-    header('Location: ?page=index');
+    header('Location: index.php?page=index');
     exit;
 }
-
-$pdo  = getDbConnection();
-$stmt = $pdo->prepare(
-    'SELECT t.id, t.title, t.content, t.created_at, t.category_id, u.username
-     FROM threads t
-     JOIN users u ON t.user_id = u.id
-     WHERE t.id = ?'
+$pdo = getDbConnection();
+$threadStmt = $pdo->prepare(
+    'SELECT t.id, t.title, t.content, t.created_at, t.category_id, c.name AS category_name, u.username
+     FROM threads t JOIN categories c ON c.id = t.category_id JOIN users u ON u.id = t.user_id WHERE t.id = ?'
 );
-$stmt->execute([$threadId]);
-$thread = $stmt->fetch();
-
+$threadStmt->execute([$threadId]);
+$thread = $threadStmt->fetch();
 if (!$thread) {
-    die('Thread not found.');
+    http_response_code(404);
+    $pageTitle = 'Discussione non trovata';
+    require __DIR__ . '/../includes/header.php';
+    echo '<h1>Discussione non trovata</h1><p><a href="index.php?page=index">Torna alle categorie</a></p>';
+    require __DIR__ . '/../includes/footer.php';
+    return;
 }
-
-$pageTitle = escapeHtml($thread['title']);
-
-// Fetch comments
-$stmt = $pdo->prepare(
-    'SELECT c.id, c.content, c.created_at, u.username
-     FROM comments c
-     JOIN users u ON c.user_id = u.id
-     WHERE c.thread_id = ?
-     ORDER BY c.created_at ASC'
-);
-$stmt->execute([$threadId]);
-$comments = $stmt->fetchAll();
-
-require_once __DIR__ . '/../includes/header.php';
+$commentStmt = $pdo->prepare('SELECT c.id, c.content, c.created_at, u.username FROM comments c JOIN users u ON u.id = c.user_id WHERE c.thread_id = ? ORDER BY c.created_at ASC, c.id ASC');
+$commentStmt->execute([$threadId]);
+$comments = $commentStmt->fetchAll();
+$pageTitle = $thread['title'];
+require __DIR__ . '/../includes/header.php';
 ?>
-
-    <div class="breadcrumb">
-        <a href="?page=index">Home</a> &raquo;
-        <a href="?page=category&id=<?php echo $thread['category_id']; ?>">Category</a> &raquo;
-        <?php echo $pageTitle; ?>
-    </div>
-
-    <article class="thread">
-        <h1><?php echo $pageTitle; ?></h1>
-        <div class="thread-meta">
-            by <strong><?php echo escapeHtml($thread['username']); ?></strong>
-            on <?php echo escapeHtml($thread['created_at']); ?>
-        </div>
-        <div class="thread-content">
-            <?php echo nl2br(escapeHtml($thread['content'])); ?>
-        </div>
-
-        <?php if (isAdmin()): ?>
-            <form action="actions/delete_thread.php" method="POST" class="inline-form" data-action="delete_thread">
-                <?php echo csrfField(); ?>
-                <input type="hidden" name="thread_id" value="<?php echo $thread['id']; ?>">
-                <input type="hidden" name="category_id" value="<?php echo $thread['category_id']; ?>">
-                <button type="submit" class="btn-delete" onclick="return confirm('Delete this thread?')">Delete Thread</button>
-            </form>
-        <?php endif; ?>
-    </article>
-
-    <section class="comments">
-        <h2>Comments (<span id="comments-count"><?php echo count($comments); ?></span>)</h2>
-
-        <div id="comments-list">
-            <?php if (empty($comments)): ?>
-                <p class="empty-state" id="empty-comments">No comments yet.</p>
-            <?php else: ?>
-                <?php foreach ($comments as $comment): ?>
-                    <div class="comment" id="comment-<?php echo $comment['id']; ?>">
-                        <div class="comment-header">
-                            <strong><?php echo escapeHtml($comment['username']); ?></strong>
-                            <span><?php echo escapeHtml($comment['created_at']); ?></span>
-                        </div>
-                        <div class="comment-content">
-                            <?php echo nl2br(escapeHtml($comment['content'])); ?>
-                        </div>
-                        <?php if (isAdmin()): ?>
-                            <form action="actions/delete_comment.php" method="POST" class="inline-form" data-action="delete_comment">
-                                <?php echo csrfField(); ?>
-                                <input type="hidden" name="comment_id" value="<?php echo $comment['id']; ?>">
-                                <input type="hidden" name="thread_id" value="<?php echo $thread['id']; ?>">
-                                <button type="submit" class="btn-delete" onclick="return confirm('Delete this comment?')">Delete</button>
-                            </form>
-                        <?php endif; ?>
-                    </div>
-                <?php endforeach; ?>
-            <?php endif; ?>
-        </div>
-    </section>
-
-    <?php if (isLoggedIn()): ?>
-        <div class="create-form">
-            <h2>Post a Comment</h2>
-            <div id="form-error" class="alert alert-error" style="display:none;"></div>
-            <form action="actions/create_comment.php" method="POST" data-action="create_comment">
-                <?php echo csrfField(); ?>
-                <input type="hidden" name="thread_id" value="<?php echo $thread['id']; ?>">
-                <label for="content">Comment:</label>
-                <textarea id="content" name="content" rows="4" required></textarea>
-                <button type="submit">Post Comment</button>
-            </form>
-        </div>
+<nav class="breadcrumb" aria-label="Percorso"><a href="index.php?page=index">Categorie</a> / <a href="index.php?page=category&amp;id=<?php echo (int) $thread['category_id']; ?>"><?php echo escapeHtml($thread['category_name']); ?></a> / <?php echo escapeHtml($thread['title']); ?></nav>
+<article class="thread card">
+    <h1><?php echo escapeHtml($thread['title']); ?></h1>
+    <p class="thread-meta">Pubblicata da <?php echo escapeHtml($thread['username']); ?> il <?php echo escapeHtml($thread['created_at']); ?></p>
+    <div class="thread-content"><?php echo nl2br(escapeHtml($thread['content'])); ?></div>
+    <?php if (isAdmin()): ?>
+        <form class="inline-form" action="actions/delete_thread.php" method="post" data-action="delete_thread">
+            <?php echo csrfField(); ?><input type="hidden" name="thread_id" value="<?php echo $threadId; ?>"><input type="hidden" name="category_id" value="<?php echo (int) $thread['category_id']; ?>">
+            <button class="btn-delete" type="submit" data-confirm="Eliminare questa discussione?">Elimina discussione</button>
+        </form>
     <?php endif; ?>
-
-<?php
-require_once __DIR__ . '/../includes/footer.php';
+</article>
+<section class="comments" aria-labelledby="comments-heading">
+    <h2 id="comments-heading">Commenti (<?php echo count($comments); ?>)</h2>
+    <?php foreach ($comments as $comment): ?>
+        <article class="comment" id="comment-<?php echo (int) $comment['id']; ?>">
+            <p class="comment-header"><strong><?php echo escapeHtml($comment['username']); ?></strong> <time><?php echo escapeHtml($comment['created_at']); ?></time></p>
+            <div class="comment-content"><?php echo nl2br(escapeHtml($comment['content'])); ?></div>
+            <?php if (isAdmin()): ?>
+                <form class="inline-form" action="actions/delete_comment.php" method="post" data-action="delete_comment">
+                    <?php echo csrfField(); ?><input type="hidden" name="comment_id" value="<?php echo (int) $comment['id']; ?>"><input type="hidden" name="thread_id" value="<?php echo $threadId; ?>">
+                    <button class="btn-delete" type="submit" data-confirm="Eliminare questo commento?">Elimina</button>
+                </form>
+            <?php endif; ?>
+        </article>
+    <?php endforeach; ?>
+    <?php if (!$comments): ?><p class="empty-state">Nessun commento.</p><?php endif; ?>
+</section>
+<?php if (isLoggedIn()): ?>
+    <section class="card create-form"><h2>Lascia un commento</h2><div class="form-error" role="alert" hidden></div>
+        <form action="actions/create_comment.php" method="post" data-action="create_comment"><?php echo csrfField(); ?><input type="hidden" name="thread_id" value="<?php echo $threadId; ?>"><label for="comment-content">Commento</label><textarea id="comment-content" name="content" maxlength="5000" rows="4" required></textarea><button type="submit">Pubblica commento</button></form>
+    </section>
+<?php endif; ?>
+<?php require __DIR__ . '/../includes/footer.php'; ?>
