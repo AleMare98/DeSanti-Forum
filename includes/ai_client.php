@@ -5,7 +5,6 @@ require_once __DIR__ . '/../config/ai.php';
 function generateForumContentWithAiProvider(
     string $seedPrompt,
     string $language,
-    string $tone,
     int $categoryCount,
     int $threadsPerCategory,
     int $commentsPerThread
@@ -14,16 +13,23 @@ function generateForumContentWithAiProvider(
         throw new RuntimeException('cURL extension is required for AI generation.');
     }
 
-    $systemPrompt = 'You generate realistic forum content. Return only valid JSON using this schema: '
+    $systemPrompt = 'You generate realistic forum content dedicated to ITS Umbria Academy. '
+        . 'Use a cordial and formal tone. Return only valid JSON using this schema: '
         . '{"categories":[{"name":"string","threads":[{"title":"string","content":"string","comments":["string"]}]}]}. '
         . 'No markdown, no explanations, no extra keys.';
 
     $userPrompt = 'Seed prompt: ' . $seedPrompt . "\n"
         . 'Language: ' . $language . "\n"
-        . 'Tone: ' . $tone . "\n"
         . 'Create exactly ' . $categoryCount . ' categories. '
         . 'Each category must have exactly ' . $threadsPerCategory . ' threads. '
         . 'Each thread must have exactly ' . $commentsPerThread . ' comments.';
+
+    // UTF-8 byte length is a conservative upper bound for BPE token count.
+    // Keep additional room for chat-message framing so the input stays below 8,000 tokens.
+    $inputBytes = strlen($systemPrompt) + strlen($userPrompt);
+    if ($inputBytes + 256 >= AI_MAX_INPUT_BYTES) {
+        throw new InvalidArgumentException('La richiesta supera il limite di input consentito.');
+    }
 
     $provider = strtolower((string) AI_PROVIDER);
     $model = '';

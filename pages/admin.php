@@ -29,8 +29,8 @@ require __DIR__ . '/../includes/header.php';
     <div class="form-error" role="alert" hidden></div>
     <form action="actions/generate_forum_ai.php" method="post" data-action="generate_forum_ai">
         <?php echo csrfField(); ?>
-        <label for="seed-prompt">Argomento</label><textarea id="seed-prompt" name="seed_prompt" maxlength="2000" rows="4" required></textarea>
-        <div class="form-grid"><div><label for="language">Lingua</label><input id="language" name="language" maxlength="40" value="Italiano" required></div><div><label for="tone">Tono</label><input id="tone" name="tone" maxlength="40" value="Amichevole e pratico" required></div></div>
+        <label for="seed-prompt">Argomento</label><textarea id="seed-prompt" name="seed_prompt" maxlength="1500" rows="4" required></textarea>
+        <div class="form-grid"><div><label for="language">Lingua</label><input id="language" name="language" maxlength="40" value="Italiano" required></div></div>
         <div class="form-grid"><div><label for="category-count">Categorie</label><input id="category-count" name="category_count" type="number" min="1" max="5" value="1" required></div><div><label for="threads-count">Discussioni per categoria</label><input id="threads-count" name="threads_per_category" type="number" min="1" max="5" value="2" required></div><div><label for="comments-count">Commenti per discussione</label><input id="comments-count" name="comments_per_thread" type="number" min="0" max="6" value="1" required></div></div>
         <button type="submit">Crea bozza</button>
     </form>

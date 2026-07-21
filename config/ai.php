@@ -25,6 +25,10 @@ if (!defined('AI_REQUEST_TIMEOUT_SECONDS')) {
     define('AI_REQUEST_TIMEOUT_SECONDS', 30);
 }
 
+if (!defined('AI_MAX_INPUT_BYTES')) {
+    define('AI_MAX_INPUT_BYTES', 7000);
+}
+
 if (!defined('AI_RATE_LIMIT_SECONDS')) {
     define('AI_RATE_LIMIT_SECONDS', 15);
 }

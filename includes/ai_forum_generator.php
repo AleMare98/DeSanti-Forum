@@ -5,7 +5,6 @@ require_once __DIR__ . '/ai_client.php';
 function generateForumStructure(
     string $seedPrompt,
     string $language,
-    string $tone,
     int $categoryCount,
     int $threadsPerCategory,
     int $commentsPerThread
@@ -13,7 +12,6 @@ function generateForumStructure(
     $raw = generateForumContentWithAiProvider(
         $seedPrompt,
         $language,
-        $tone,
         $categoryCount,
         $threadsPerCategory,
         $commentsPerThread

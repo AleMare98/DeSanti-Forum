@@ -19,13 +19,12 @@ if (!empty($_SESSION['last_ai_generation_at']) && time() - (int) $_SESSION['last
 
 $seedPrompt = sanitizePost('seed_prompt');
 $language = sanitizePost('language');
-$tone = sanitizePost('tone');
 $categoryCount = postInteger('category_count');
 $threadsPerCategory = postInteger('threads_per_category');
 $commentsPerThread = postInteger('comments_per_thread');
 
-if ($seedPrompt === '' || mb_strlen($seedPrompt) > 2000 || $language === '' || mb_strlen($language) > 40 || $tone === '' || mb_strlen($tone) > 40) {
-    requestError('Controlla prompt, lingua e tono della bozza.', 422, $redirect);
+if ($seedPrompt === '' || mb_strlen($seedPrompt) > 1500 || $language === '' || mb_strlen($language) > 40) {
+    requestError('Controlla prompt e lingua della bozza.', 422, $redirect);
 }
 if ($categoryCount < AI_MIN_CATEGORIES || $categoryCount > AI_MAX_CATEGORIES || $threadsPerCategory < AI_MIN_THREADS_PER_CATEGORY || $threadsPerCategory > AI_MAX_THREADS_PER_CATEGORY || $commentsPerThread < AI_MIN_COMMENTS_PER_THREAD || $commentsPerThread > AI_MAX_COMMENTS_PER_THREAD) {
     requestError('I quantitativi richiesti non sono consentiti.', 422, $redirect);
@@ -35,7 +34,7 @@ if ((AI_PROVIDER === 'openai' && AI_OPENAI_API_KEY === '') || (AI_PROVIDER === '
 }
 
 try {
-    $draft = generateForumStructure($seedPrompt, $language, $tone, $categoryCount, $threadsPerCategory, $commentsPerThread);
+    $draft = generateForumStructure($seedPrompt, $language, $categoryCount, $threadsPerCategory, $commentsPerThread);
     $_SESSION['last_ai_generation_at'] = time();
     $draftToken = bin2hex(random_bytes(32));
     $_SESSION['ai_forum_draft'] = [
