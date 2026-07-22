@@ -81,15 +81,15 @@ CREATE TABLE IF NOT EXISTS `ai_generation_runs` (
 
 CREATE TABLE IF NOT EXISTS `forum_settings` (
     `id` TINYINT UNSIGNED PRIMARY KEY,
-    `ai_followups_enabled` TINYINT(1) NOT NULL DEFAULT 0,
+    `ai_followups_enabled` TINYINT(1) NOT NULL DEFAULT 1,
     `updated_by` INT UNSIGNED NULL,
     `updated_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     FOREIGN KEY (`updated_by`) REFERENCES `users`(`id`) ON DELETE SET NULL
 ) ENGINE=InnoDB;
 
 INSERT INTO `forum_settings` (`id`, `ai_followups_enabled`)
-VALUES (1, 0)
-ON DUPLICATE KEY UPDATE `id` = `id`;
+VALUES (1, 1)
+ON DUPLICATE KEY UPDATE `ai_followups_enabled` = 1;
 
 CREATE TABLE IF NOT EXISTS `ai_comment_followups` (
     `id` INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,

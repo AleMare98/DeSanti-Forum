@@ -24,7 +24,7 @@ AI generation setup (Admin panel):
    - Transactional DB writes during publication (all-or-nothing)
 
 AI follow-up setup:
-1. Import the latest `database.sql` so `forum_settings` and `ai_comment_followups` exist.
-2. Keep `AI_PROVIDER=github` and `GITHUB_TOKEN` configured on the server. Optionally set `GITHUB_FOLLOWUP_MODEL`.
-3. In the administrator panel, enable automatic follow-ups. Each human comment is evaluated at most once; AI comments never trigger another evaluation.
-4. If the provider fails, the human comment remains published and the failure is recorded without exposing provider details.
+1. Import `database.sql` or `database/migrations/001_ai_followups.sql` so `forum_settings` and `ai_comment_followups` exist. New installations enable follow-ups by default.
+2. Configure either `AI_PROVIDER=openai` with `OPENAI_API_KEY`, or `AI_PROVIDER=github` with `GITHUB_TOKEN` on the server. Optionally set the matching model variable.
+3. Each human comment is evaluated at most once and can create no more than one automatic AI follow-up; AI comments never trigger another evaluation.
+4. The model skips only greetings, thanks, confirmations and messages without a useful request or contribution. If the provider fails, the human comment remains published and the failure is recorded without exposing provider details.

@@ -32,18 +32,20 @@ $pdo->beginTransaction();
 $stmt = $pdo->prepare('INSERT INTO comments (content, user_id, thread_id, source) VALUES (?, ?, ?, \'human\')');
 $stmt->execute([$content, $userId, $threadId]);
 $commentId = (int) $pdo->lastInsertId();
-$settingStmt = $pdo->query('SELECT ai_followups_enabled FROM forum_settings WHERE id = 1');
-$followupsEnabled = (bool) ($settingStmt->fetchColumn() ?? false);
-$runId = null;
-if ($followupsEnabled) {
-    $runStmt = $pdo->prepare('INSERT INTO ai_comment_followups (trigger_comment_id, thread_id, provider, model) VALUES (?, ?, ?, ?)');
-    $runStmt->execute([$commentId, $threadId, AI_PROVIDER, AI_FOLLOWUP_MODEL]);
-    $runId = (int) $pdo->lastInsertId();
-}
 $pdo->commit();
 
-if ($followupsEnabled && $runId !== null) {
-    try {
+$followupsEnabled = false;
+$runId = null;
+try {
+    $settingStmt = $pdo->query('SELECT ai_followups_enabled FROM forum_settings WHERE id = 1');
+    $followupsEnabled = (bool) ($settingStmt->fetchColumn() ?? false);
+    if ($followupsEnabled) {
+        $runStmt = $pdo->prepare('INSERT INTO ai_comment_followups (trigger_comment_id, thread_id, provider, model) VALUES (?, ?, ?, ?)');
+        $runStmt->execute([$commentId, $threadId, AI_PROVIDER, AI_FOLLOWUP_MODEL]);
+        $runId = (int) $pdo->lastInsertId();
+    }
+
+    if ($followupsEnabled && $runId !== null) {
         $commentsStmt = $pdo->prepare('SELECT c.content, u.username FROM comments c JOIN users u ON u.id = c.user_id WHERE c.thread_id = ? ORDER BY c.created_at ASC, c.id ASC');
         $commentsStmt->execute([$threadId]);
         $decision = decideAiFollowup($threadData, $commentsStmt->fetchAll());
@@ -67,11 +69,17 @@ if ($followupsEnabled && $runId !== null) {
             $update->execute([$decision['content'], $aiCommentId, $runId]);
             $pdo->commit();
         }
-    } catch (Throwable $exception) {
-        if ($pdo->inTransaction()) $pdo->rollBack();
-        error_log('AI follow-up failed: ' . $exception->getMessage());
-        $failed = $pdo->prepare('UPDATE ai_comment_followups SET status = \'failed\', error_message = ?, completed_at = NOW() WHERE id = ?');
-        $failed->execute(['AI follow-up unavailable', $runId]);
+    }
+} catch (Throwable $exception) {
+    if ($pdo->inTransaction()) $pdo->rollBack();
+    error_log('AI follow-up failed: ' . $exception->getMessage());
+    if ($runId !== null) {
+        try {
+            $failed = $pdo->prepare('UPDATE ai_comment_followups SET status = \'failed\', error_message = ?, completed_at = NOW() WHERE id = ?');
+            $failed->execute(['AI follow-up unavailable', $runId]);
+        } catch (Throwable $ignored) {
+            error_log('AI follow-up status update failed: ' . $ignored->getMessage());
+        }
     }
 }
 requestSuccess(['comment' => ['id' => $commentId, 'content' => $content]], $redirect);
